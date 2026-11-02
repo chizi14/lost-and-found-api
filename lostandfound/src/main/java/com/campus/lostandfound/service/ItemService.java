@@ -39,17 +39,12 @@ public class ItemService {
 
     @Transactional(readOnly = true)
     public List<ItemResponse> search(String name, String category, String location) {
-        List<Item> results;
-        if (name != null) {
-            results = repository.findByNameContainingIgnoreCase(name);
-        } else if (category != null) {
-            results = repository.findByCategoryIgnoreCase(category);
-        } else if (location != null) {
-            results = repository.findByLocationContainingIgnoreCase(location);
-        } else {
-            results = repository.findAll();
-        }
-        return results.stream().map(ItemResponse::from).toList();
+        return repository.findAll().stream()
+                .filter(i -> isBlank(name) || contains(i.getName(), name))
+                .filter(i -> isBlank(category) || i.getCategory().equalsIgnoreCase(category.trim()))
+                .filter(i -> isBlank(location) || contains(i.getLocation(), location))
+                .map(ItemResponse::from)
+                .toList();
     }
 
     public ItemResponse update(Long id, ItemRequest request) {
@@ -79,8 +74,24 @@ public class ItemService {
         item.setCategory(request.category());
         item.setLocation(request.location());
         item.setType(request.type());
-        item.setStatus(request.status() != null ? request.status() : Item.Status.OPEN);
-        item.setDateReported(request.dateReported() != null ? request.dateReported() : LocalDate.now());
+        if (request.status() != null) {
+            item.setStatus(request.status());
+        } else if (item.getStatus() == null) {
+            item.setStatus(Item.Status.OPEN);
+        }
+        if (request.dateReported() != null) {
+            item.setDateReported(request.dateReported());
+        } else if (item.getDateReported() == null) {
+            item.setDateReported(LocalDate.now());
+        }
         item.setContact(request.contact());
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private boolean contains(String field, String search) {
+        return field != null && field.toLowerCase().contains(search.trim().toLowerCase());
     }
 }
